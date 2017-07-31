@@ -2,6 +2,37 @@
 Self-Driving Car Engineer Nanodegree Program
 
 ---
+## PID Controller Reflection
+
+[//]: # (Image References)
+[image1]: ./result/pid.png
+
+
+Two PID controllers are used in this project: one for steering control and the other for speed control. 
+
+For steering PID controller it contains three parts:
+
+1. Proportional (P): The steering angle is proportional to the CTE, however, if only P is used, the car can easily ended up with oscillation. The larger P value, the quicker vehicle can return back to center but it's also more likely to overshoot. I tried different value and found 0.1 can be a good value. 
+
+2. Integral (I): The sum of all CTE is stored and feed back to system to compensate the system offset. In this project there is no system offset (like wheel angle offset), so this value should set to very very small, even 0 can be accepted. Here I used 0.0001. 
+
+3. Differential (D): The difference of previous CTE and new CTE is calculated and feed back to system. This can help to dampen the oscillation when move back to center. I tried 1.0, 2.0, 3.0, 4.0 and found they do not make so much difference. And finally I chose 3.0. 
+
+```
+  // Final hyperparameters are chosen complete manually after lots of tries 
+  double Kp = 0.1;
+  double Ki = 0.0001;
+  double Kd = 3.0;
+```
+
+For speed PID I only used Proportional part since we don't need to control the speed so accurate. When the vehicle is turing at sharp turn and CTE is too large, we need to slow down to make it turn successfully. I set the speed to 100mph when CTE is less than 0.5, set to 80mph when CTE is less than 1.0, set to 50mph when CTE is less than 2.0 and set to 20mph when CTE is larger than 2.0. 
+
+The car can drive at 60-80mph for most of the time, and slow down to 30-50mph at sharp turn. The max speed can reach to 91.42mph as shown in below picture. 
+
+![alt text][image1]
+
+
+
 
 ## Dependencies
 

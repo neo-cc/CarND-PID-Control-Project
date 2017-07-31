@@ -12,6 +12,10 @@ constexpr double pi() { return M_PI; }
 double deg2rad(double x) { return x * pi() / 180; }
 double rad2deg(double x) { return x * 180 / pi(); }
 
+const double min = -1.0;
+const double max = 1.0;
+
+
 // Checks if the SocketIO event has JSON data.
 // If there is data the JSON object in string format will be returned,
 // else the empty string "" will be returned.
@@ -28,14 +32,33 @@ std::string hasData(std::string s) {
   return "";
 }
 
-int main()
+int main(int argc, char *argv[])
 {
   uWS::Hub h;
 
-  PID pid;
-  // TODO: Initialize the pid variable.
+  PID pid;        // for steering control
+  PID speed_pid;  // for speed control
+  
+  
+  // manually tuning parameters
+  double Kp = 0.1;
+  double Ki = 0.0001;
+  double Kd = 3.0;
+  
+  if(argc >= 4) {
+    Kp = atof(argv[1]);
+    Ki = atof(argv[2]);
+    Kd = atof(argv[3]);
+  }
+  
+  
+  // Initialize the pid variable.
+  pid.Init(Kp, Ki, Kd);
+  speed_pid.Init(0.35,0.0,0.0);
 
-  h.onMessage([&pid](uWS::WebSocket<uWS::SERVER> ws, char *data, size_t length, uWS::OpCode opCode) {
+  double cur_speed; // mph
+
+  h.onMessage([&pid,&speed_pid,&cur_speed](uWS::WebSocket<uWS::SERVER> ws, char *data, size_t length, uWS::OpCode opCode) {
     // "42" at the start of the message means there's a websocket message event.
     // The 4 signifies a websocket message
     // The 2 signifies a websocket event
@@ -58,14 +81,56 @@ int main()
           * another PID controller to control the speed!
           */
           
+          pid.UpdateError(cte);
+          steer_value = pid.TotalError();
+          
+          if(steer_value > max) {
+            steer_value = max;
+          }
+          else if (steer_value < min) {
+            steer_value = min;
+          }
+          
+
+          // adjust cur_speed according to CTE
+          if (speed > 30)
+          {
+            if (fabs(cte) < .5) {
+              cur_speed = 100;
+            }
+            else if (fabs(cte) < 1.0) {
+              cur_speed = 80;
+            }
+            else if (fabs(cte) < 2.0) {
+              cur_speed = 50;
+            }
+            else {
+              cur_speed = 20;
+            }
+          }
+          
+          else {
+            cur_speed = 100;
+          }
+          
+          double speed_error = speed - cur_speed;
+          speed_pid.UpdateError(speed_error);
+          
+          double throttle = speed_pid.TotalError();
+          std::cout << "speed, cur_speed, throttle: " << speed << "  " << cur_speed << "  " << throttle << std::endl;
+          
+
+          
           // DEBUG
           std::cout << "CTE: " << cte << " Steering Value: " << steer_value << std::endl;
 
           json msgJson;
           msgJson["steering_angle"] = steer_value;
-          msgJson["throttle"] = 0.3;
+//          msgJson["throttle"] = 0.3;
+          msgJson["throttle"] = throttle;
+
           auto msg = "42[\"steer\"," + msgJson.dump() + "]";
-          std::cout << msg << std::endl;
+//          std::cout << msg << std::endl;
           ws.send(msg.data(), msg.length(), uWS::OpCode::TEXT);
         }
       } else {
